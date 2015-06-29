@@ -23,7 +23,8 @@ var previousWorkingDirectory = process.cwd();
 
 var configFileName = 'default-config.json',
 		dbConfig = null,
-		dbProperty = 'mongoAppDb';
+		dbProperty = 'mongoAppDb',
+		prependPath = '';
 
 /**
  * Usage information.
@@ -107,6 +108,10 @@ function pad(n) {
 	return Array(5 - n.toString().length).join('0') + n;
 }
 
+function setPrependPath(path) {
+	prependPath = path + '/';
+}
+
 function runMongoMigrate(direction, migrationEnd, next) {
 	if (direction) {
 		options.command = direction;
@@ -132,7 +137,7 @@ function runMongoMigrate(direction, migrationEnd, next) {
 			migrateToNum = hasMigrateTo ? parseInt(migrateTo, 10) : undefined,
 			migrateToFound = !hasMigrateTo;
 
-		var migrationsToRun = fs.readdirSync('migrations')
+		var migrationsToRun = fs.readdirSync(prependPath + 'migrations')
 			.filter(function (file) {
 				var formatCorrect = file.match(/^\d+.*\.js$/),
 					migrationNum = formatCorrect && parseInt(file.match(/^\d+/)[0], 10),
@@ -174,7 +179,7 @@ function runMongoMigrate(direction, migrationEnd, next) {
 
 				return formatCorrect && isRunnable;
 			}).map(function(file){
-				return 'migrations/' + file;
+				return prependPath + 'migrations/' + file;
 			});
 
 		if (!migrateToFound) {
@@ -187,7 +192,7 @@ function runMongoMigrate(direction, migrationEnd, next) {
 	// create ./migrations
 
 	try {
-		fs.mkdirSync('migrations', 0774);
+		fs.mkdirSync(prependPath + 'migrations', 0774);
 	} catch (err) {
 		// ignore
 	}
@@ -285,8 +290,9 @@ function runMongoMigrate(direction, migrationEnd, next) {
 				});
 				migrations(direction, lastMigrationNum, migrateTo).forEach(function(path){
 					var mod = require(process.cwd() + '/' + path);
+					var parts = path.split('/')
 					migrate({
-						num: parseInt(path.split('/')[1].match(/^(\d+)/)[0], 10),
+						num: parseInt(parts[parts.length - 1].match(/^(\d+)/)[0], 10),
 						title: path,
 						up: mod.up,
 						down: mod.down});
@@ -376,6 +382,7 @@ if (runmmIdx > -1 || runMongoMigrateIdx > -1) {
 	module.exports = {
 		run: runMongoMigrate,
 		changeWorkingDirectory: chdir,
+		setPrependPath: setPrependPath,
 		setDbConfig: setDbConfig,
 		setConfigFilename: setConfigFilename,
 		setConfigFileProp: setConfigFileProperty
